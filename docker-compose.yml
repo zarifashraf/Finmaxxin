@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./backend
+    container_name: yousim-api
+    environment:
+      YOUSIM_ENVIRONMENT: dev
+      YOUSIM_REQUIRED_BEARER_TOKEN: yousim-demo-token
+      YOUSIM_MONTE_CARLO_PATHS: 600
+      YOUSIM_MONTE_CARLO_SEED: 42
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+
+  web:
+    build:
+      context: ./frontend
+    container_name: yousim-web
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: yousim-postgres
+    environment:
+      POSTGRES_USER: yousim
+      POSTGRES_PASSWORD: yousim
+      POSTGRES_DB: yousim
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: yousim-redis
+    ports:
+      - "6379:6379"
+
+  redpanda:
+    image: redpandadata/redpanda:v24.2.11
+    container_name: yousim-redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --check=false
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+
+volumes:
+  pgdata:
