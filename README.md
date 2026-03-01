@@ -21,7 +21,7 @@ It models major life decisions over a 0-5 year horizon, ranks conservative recom
 - Responsive layout with mobile + desktop support.
 
 ### Local infrastructure (`Docker Compose`)
-- API service, web service.
+- Nginx reverse proxy, API service, web service.
 - Postgres, Redis, Redpanda (event-stream placeholder for production parity).
 - Redis is internal-only by default (not published to host) and requires a password.
 - Published service ports are bound to `127.0.0.1` only.
@@ -48,9 +48,10 @@ docker-compose.yml
 docker compose up --build
 ```
 
-- API: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-- Web: `http://localhost:3000`
+- Public entrypoint (Nginx): `http://localhost`
+- API docs: `http://localhost/docs`
+- Web: `http://localhost`
+- API via proxy: `http://localhost/api/*`
 
 If you need Redis shell access, run:
 
