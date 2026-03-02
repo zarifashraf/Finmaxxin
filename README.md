@@ -9,6 +9,7 @@ It models major life decisions over a 0-5 year horizon, ranks conservative recom
 - `POST /v1/scenarios`: create scenario draft from user input + account snapshot provider.
 - `POST /v1/scenarios/{scenario_id}/simulate`: Monte Carlo + deterministic policy-aware simulation.
 - `GET /v1/scenarios/{scenario_id}/recommendations`: ranked recommendations with confidence and downside.
+- `POST /v1/scenarios/{scenario_id}/advisor-brief`: dynamic narrative advisory (house decision, down payment, market context, one primary action).
 - `POST /v1/actions/preview`: execution preview with impact, fees, warnings, and TTL.
 - `POST /v1/actions/execute`: explicit-confirm execution with idempotency protection.
 - `GET /v1/decisions/{decision_id}/trace`: full explainability and policy trace.
@@ -22,7 +23,7 @@ It models major life decisions over a 0-5 year horizon, ranks conservative recom
 
 ### Local infrastructure (`Docker Compose`)
 - Nginx reverse proxy, API service, web service.
-- Postgres, Redis, Redpanda (event-stream placeholder for production parity).
+- Postgres, Redis, Redpanda (event-stream placeholder for production parity), llama.cpp sidecar.
 - Redis is internal-only by default (not published to host) and requires a password.
 - Published service ports are bound to `127.0.0.1` only.
 
@@ -43,6 +44,8 @@ docker-compose.yml
 ## Quick start
 
 ### 1. Run with Docker Compose
+
+Place your GGUF model in `./models` (or set `LLM_MODEL_DIR`/`LLM_MODEL_FILE`).
 
 ```bash
 docker compose up --build
@@ -75,6 +78,19 @@ pip install -e ".[dev]"
 pytest -q
 ```
 
+### 4. Advisory endpoint example
+
+```bash
+curl -X POST "http://localhost/api/v1/scenarios/<scenario_id>/advisor-brief" \
+  -H "Authorization: Bearer finmaxxin-demo-token" \
+  -H "X-User-Id: user-123"
+```
+
+Response includes:
+- `advice_text` (narrative with Verdict/Down payment/Market conditions/Key risks/Primary action/Note)
+- `fallback_used` + `fallback_reason` when LLM/market fetch is unavailable
+- `market_snapshot_date`, `market_data_stale`, and `llm_model`
+
 ## Run locally without Docker
 
 ### Backend (Terminal 1)
@@ -102,6 +118,9 @@ npm run dev
 - `horizon_months` max is `60`.
 - Execution requires `confirm=true` and an `idempotency_key`.
 - Decision traces capture model version, policy version, input hash, feature contributions, and policy checks.
+- Advisory brief requires scenario simulation first.
+- Advisory output is validated for required sections and CAD down-payment presence.
+- If LLM generation fails or output is invalid, backend returns deterministic fallback advice.
 
 ## Security and reliability in this prototype
 

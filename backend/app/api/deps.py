@@ -5,9 +5,15 @@ from dataclasses import dataclass
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from app.config import Settings, settings
+from app.services.advisor_prompt import AdvisorPromptService
+from app.services.advisory_orchestrator import AdvisoryOrchestratorService
+from app.services.advisory_validation import AdvisoryValidationService
 from app.services.data_provider import AccountDataProvider
 from app.services.events import EventBus
 from app.services.execution import ExecutionService
+from app.services.fallback_advisor import DeterministicFallbackAdvisor
+from app.services.llm_client import LlmClientService
+from app.services.market_data import MarketDataService
 from app.services.policy import PolicyService
 from app.services.recommendation import RecommendationService
 from app.services.simulation import SimulationService
@@ -25,6 +31,12 @@ class ServiceContainer:
     policy_service: PolicyService
     execution_service: ExecutionService
     transparency_service: TransparencyService
+    market_data_service: MarketDataService
+    llm_client_service: LlmClientService
+    advisor_prompt_service: AdvisorPromptService
+    advisory_validation_service: AdvisoryValidationService
+    fallback_advisor_service: DeterministicFallbackAdvisor
+    advisory_orchestrator_service: AdvisoryOrchestratorService
     event_bus: EventBus
 
 

@@ -70,8 +70,29 @@ def test_end_to_end_flow() -> None:
     assert "feature_contributions" in trace
     assert "policy_checks" in trace
 
+    advisor_res = client.post(f"/v1/scenarios/{scenario_id}/advisor-brief", headers=headers())
+    assert advisor_res.status_code == 200
+    advisor = advisor_res.json()
+    assert advisor["scenario_id"] == scenario_id
+    assert advisor["decision_id"] == decision_id
+    assert "Verdict:" in advisor["advice_text"]
+    assert "Suggested down payment:" in advisor["advice_text"]
+    assert "Primary action:" in advisor["advice_text"]
+    assert isinstance(advisor["fallback_used"], bool)
+
 
 def test_requires_bearer_token() -> None:
     client = TestClient(create_app())
     response = client.post("/v1/scenarios", json={"user_id": "user-123", "horizon_months": 12, "assumptions": {}})
     assert response.status_code == 401
+
+
+def test_advisor_requires_simulation_first() -> None:
+    client = TestClient(create_app())
+    create_payload = {"user_id": "user-123", "horizon_months": 24, "assumptions": {}}
+    create_res = client.post("/v1/scenarios", json=create_payload, headers=headers())
+    assert create_res.status_code == 201
+    scenario_id = create_res.json()["scenario_id"]
+
+    advisor_res = client.post(f"/v1/scenarios/{scenario_id}/advisor-brief", headers=headers())
+    assert advisor_res.status_code == 400

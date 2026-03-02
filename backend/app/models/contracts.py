@@ -138,6 +138,40 @@ class RecommendationListResponse(BaseModel):
     recommendations: list[Recommendation]
 
 
+class MarketSnapshot(BaseModel):
+    geo_scope: str = "CA"
+    fetched_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    policy_rate_pct: float | None = None
+    inflation_yoy_pct: float | None = None
+    housing_growth_yoy_pct: float | None = None
+    stale: bool = False
+    source_urls: list[str] = Field(default_factory=list)
+    source_notes: list[str] = Field(default_factory=list)
+
+
+class AdvisorBriefResponse(BaseModel):
+    scenario_id: str
+    decision_id: str
+    advice_text: str
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    market_snapshot_date: datetime
+    llm_model: str
+    fallback_used: bool
+    market_data_stale: bool = False
+    fallback_reason: str | None = None
+
+
+class AdvisorBriefTrace(BaseModel):
+    scenario_id: str
+    decision_id: str
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    prompt_excerpt: str
+    validation_errors: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    market_snapshot: MarketSnapshot
+
+
 class ActionPreviewRequest(BaseModel):
     scenario_id: str
     recommendation_id: str

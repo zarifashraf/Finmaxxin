@@ -4,6 +4,8 @@ from threading import Lock
 
 from app.models.contracts import (
     ActionExecutionResult,
+    AdvisorBriefResponse,
+    AdvisorBriefTrace,
     DecisionTrace,
     EventRecord,
     ExecutionPreview,
@@ -22,6 +24,8 @@ class InMemoryStore:
         self.previews: dict[str, ExecutionPreview] = {}
         self.executions_by_idempotency: dict[str, ActionExecutionResult] = {}
         self.decision_traces: dict[str, DecisionTrace] = {}
+        self.advisor_briefs: dict[str, AdvisorBriefResponse] = {}
+        self.advisor_traces: dict[str, AdvisorBriefTrace] = {}
         self.events: list[EventRecord] = []
 
     def save_scenario(self, scenario: ScenarioRecord) -> None:
@@ -65,6 +69,20 @@ class InMemoryStore:
 
     def get_trace(self, decision_id: str) -> DecisionTrace | None:
         return self.decision_traces.get(decision_id)
+
+    def save_advisor_brief(self, decision_id: str, brief: AdvisorBriefResponse) -> None:
+        with self._lock:
+            self.advisor_briefs[decision_id] = brief
+
+    def get_advisor_brief(self, decision_id: str) -> AdvisorBriefResponse | None:
+        return self.advisor_briefs.get(decision_id)
+
+    def save_advisor_trace(self, decision_id: str, trace: AdvisorBriefTrace) -> None:
+        with self._lock:
+            self.advisor_traces[decision_id] = trace
+
+    def get_advisor_trace(self, decision_id: str) -> AdvisorBriefTrace | None:
+        return self.advisor_traces.get(decision_id)
 
     def append_event(self, event: EventRecord) -> None:
         with self._lock:

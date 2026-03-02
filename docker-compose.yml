@@ -19,10 +19,18 @@ services:
       FINMAXXIN_REQUIRED_BEARER_TOKEN: finmaxxin-demo-token
       FINMAXXIN_MONTE_CARLO_PATHS: 600
       FINMAXXIN_MONTE_CARLO_SEED: 42
+      FINMAXXIN_ENABLE_ADVISOR_BRIEF: "true"
+      FINMAXXIN_ENABLE_MARKET_FETCH: "true"
+      FINMAXXIN_LLM_BASE_URL: http://llm:8080
+      FINMAXXIN_LLM_MODEL_NAME: ${LLM_MODEL_FILE:-qwen2.5-3b-instruct-q4_k_m.gguf}
+      FINMAXXIN_LLM_TIMEOUT_MS: 20000
+      FINMAXXIN_LLM_MAX_TOKENS: 320
+      FINMAXXIN_LLM_TEMPERATURE: 0.2
     depends_on:
       - postgres
       - redis
       - redpanda
+      - llm
 
   web:
     build:
@@ -77,6 +85,21 @@ services:
       - PLAINTEXT://redpanda:9092
     ports:
       - "127.0.0.1:9092:9092"
+
+  llm:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: finmaxxin-llm
+    command:
+      - -m
+      - /models/${LLM_MODEL_FILE:-qwen2.5-3b-instruct-q4_k_m.gguf}
+      - -c
+      - "2048"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    volumes:
+      - ${LLM_MODEL_DIR:-./models}:/models:ro
 
 volumes:
   pgdata:

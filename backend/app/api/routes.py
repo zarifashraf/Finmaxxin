@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from app.api.deps import Principal, PrincipalDep, ServiceContainer, ServicesDep, require_scenario_owner
 from app.models.contracts import (
     ActionExecuteRequest,
+    AdvisorBriefResponse,
     ActionPreviewRequest,
     DecisionTrace,
     RecommendationListResponse,
@@ -87,6 +88,25 @@ def get_recommendations(
 
     services.event_bus.emit("recommendation_viewed", {"scenario_id": scenario_id, "recommendation_count": len(recs)})
     return RecommendationListResponse(scenario_id=scenario_id, recommendations=recs)
+
+
+@router.post("/scenarios/{scenario_id}/advisor-brief", response_model=AdvisorBriefResponse)
+def get_advisor_brief(
+    scenario_id: str,
+    services: ServiceContainer = ServicesDep,
+    principal: Principal = PrincipalDep,
+) -> AdvisorBriefResponse:
+    scenario = services.store.get_scenario(scenario_id)
+    if scenario is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scenario not found")
+    require_scenario_owner(principal, scenario.input.user_id)
+
+    simulation = services.store.get_simulation(scenario_id)
+    if simulation is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="scenario must be simulated first")
+
+    brief = services.advisory_orchestrator_service.generate_brief(scenario, simulation)
+    return brief
 
 
 @router.post("/actions/preview")
