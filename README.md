@@ -121,4 +121,7 @@ npm run dev
 ## Iterations
 ### Iteration-1
 <img width="1288" height="705" alt="image" src="https://github.com/user-attachments/assets/0d325f48-ab3d-44dc-af33-ebe2666250b5" />
+#Iteration-2
+<img width="1347" height="735" alt="image" src="https://github.com/user-attachments/assets/334c0175-1b35-4286-b593-4986126018cf" />
+
 
