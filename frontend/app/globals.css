@@ -151,6 +151,76 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+.metric-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.metric-row p {
+  margin: 4px 0;
+  color: var(--ink);
+}
+
+.metric-label {
+  font-weight: 600;
+}
+
+.metric-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f1f6fb;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.metric-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: 130%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #0f1a22;
+  color: #d6ecff;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  box-shadow: 0 10px 22px rgba(5, 18, 25, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.metric-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #0f1a22 transparent transparent transparent;
+}
+
+.metric-hint:hover .metric-tooltip,
+.metric-hint:focus .metric-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
 .pill {
   display: inline-block;
   font-size: 0.74rem;

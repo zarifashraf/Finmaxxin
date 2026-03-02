@@ -33,6 +33,28 @@ function cad(cents: number) {
   );
 }
 
+function confidenceBand(confidence: number): string {
+  if (confidence >= 0.75) return "high";
+  if (confidence >= 0.5) return "medium";
+  return "low";
+}
+
+function MetricWithHelp({ label, value, help }: { label: string; value: string; help: string }) {
+  return (
+    <div className="metric-row">
+      <p>
+        <span className="metric-label">{label}:</span> {value}
+      </p>
+      <span className="metric-hint" tabIndex={0} aria-label={`${label} details`}>
+        i
+        <span className="metric-tooltip" role="tooltip">
+          {help}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export default function Page() {
   const [token, setToken] = useState("finmaxxin-demo-token");
   const [userId, setUserId] = useState("user-123");
@@ -257,9 +279,26 @@ export default function Page() {
                   <span className="pill">
                     score {rec.score.toFixed(2)} | {rec.risk_level}
                   </span>
-                  <p>Expected delta: {cad(rec.expected_net_worth_delta.amount_cents)}</p>
-                  <p>P10 downside: {cad(rec.downside_p10_delta.amount_cents)}</p>
-                  <p>Confidence: {(rec.confidence * 100).toFixed(1)}%</p>
+                  <MetricWithHelp
+                    label="Expected delta"
+                    value={`${cad(rec.expected_net_worth_delta.amount_cents)} over ${horizon} months`}
+                    help="Median projected change in your net worth versus staying on your current path."
+                  />
+                  <MetricWithHelp
+                    label="P10 downside"
+                    value={cad(rec.downside_p10_delta.amount_cents)}
+                    help="Stress-case outcome: about 1 in 10 simulations landed at or below this delta."
+                  />
+                  <MetricWithHelp
+                    label="Confidence"
+                    value={`${(rec.confidence * 100).toFixed(1)}% (${confidenceBand(rec.confidence)})`}
+                    help="How stable this estimate is across simulations, based on outcome consistency and result spread."
+                  />
+                  <MetricWithHelp
+                    label="Goal success probability"
+                    value={`${(rec.goal_success_probability * 100).toFixed(1)}%`}
+                    help="Share of simulations where ending net worth stayed at or above your current net worth."
+                  />
                   <p>{rec.rationale[0]}</p>
                   <div className="row">
                     <button disabled={busy} onClick={() => previewAction(rec)}>
