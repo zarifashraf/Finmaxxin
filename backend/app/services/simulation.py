@@ -44,7 +44,13 @@ class SimulationService:
         confidence = max(0.15, min(0.98, 0.2 + (0.55 * directional_strength) + (0.25 * stability)))
         initial_net_worth = snapshot.assets_cents - snapshot.liabilities_cents
         goal_success_probability = float(np.mean(scenario_final >= initial_net_worth))
+        scenario_beats_baseline_probability = float(np.mean(deltas > 0))
 
+        baseline_timeline = PercentileSeries(
+            p10_cents=[int(v) for v in np.percentile(baseline_paths, 10, axis=0)],
+            p50_cents=[int(v) for v in np.percentile(baseline_paths, 50, axis=0)],
+            p90_cents=[int(v) for v in np.percentile(baseline_paths, 90, axis=0)],
+        )
         timeline = PercentileSeries(
             p10_cents=[int(v) for v in np.percentile(scenario_paths, 10, axis=0)],
             p50_cents=[int(v) for v in np.percentile(scenario_paths, 50, axis=0)],
@@ -77,6 +83,8 @@ class SimulationService:
             downside_p10_delta_cents=p10_delta,
             confidence=confidence,
             goal_success_probability=goal_success_probability,
+            scenario_beats_baseline_probability=scenario_beats_baseline_probability,
+            baseline_timeline=baseline_timeline,
             timeline=timeline,
             alternatives=alternatives,
             economic_assumptions_version=self.settings.economic_assumptions_version,

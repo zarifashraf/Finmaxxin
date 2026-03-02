@@ -1,6 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+
+type PercentileSeries = {
+  p10_cents: number[];
+  p50_cents: number[];
+  p90_cents: number[];
+};
+
+type SimulationResult = {
+  decision_id: string;
+  horizon_months: number;
+  baseline_final_net_worth_cents: number;
+  scenario_final_net_worth_cents: number;
+  delta_final_net_worth_cents: number;
+  downside_p10_delta_cents: number;
+  confidence: number;
+  goal_success_probability: number;
+  scenario_beats_baseline_probability: number;
+  baseline_timeline: PercentileSeries;
+  timeline: PercentileSeries;
+};
 
 type Recommendation = {
   recommendation_id: string;
@@ -25,6 +46,13 @@ type ExecutionPreview = {
   expires_at: string;
 };
 
+type ExecutionResult = {
+  execution_id: string;
+  status: string;
+  executed_at: string;
+  upstream_reference: string;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
 
 function cad(cents: number) {
@@ -39,7 +67,7 @@ function confidenceBand(confidence: number): string {
   return "low";
 }
 
-function MetricWithHelp({ label, value, help }: { label: string; value: string; help: string }) {
+function MetricWithHelp({ label, value, help }: { label: string; value: string | ReactNode; help: string }) {
   return (
     <div className="metric-row">
       <p>
@@ -51,6 +79,51 @@ function MetricWithHelp({ label, value, help }: { label: string; value: string; 
           {help}
         </span>
       </span>
+    </div>
+  );
+}
+
+function projectionVerdict(simulation: SimulationResult): string {
+  if (simulation.delta_final_net_worth_cents > 0) {
+    return "Your scenario currently projects a better financial outcome than staying on your current path.";
+  }
+  if (simulation.delta_final_net_worth_cents < 0) {
+    return "Your scenario currently projects a weaker financial outcome than your current path.";
+  }
+  return "Your scenario and current path are currently projecting similar outcomes.";
+}
+
+function linePath(values: number[], width: number, height: number, minValue: number, maxValue: number): string {
+  if (values.length === 0) return "";
+  const range = Math.max(1, maxValue - minValue);
+  return values
+    .map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * width;
+      const y = height - ((value - minValue) / range) * height;
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function FutureChart({ baseline, scenario }: { baseline: number[]; scenario: number[] }) {
+  const width = 560;
+  const height = 160;
+  const combined = [...baseline, ...scenario];
+  const minValue = Math.min(...combined);
+  const maxValue = Math.max(...combined);
+  const baselinePath = linePath(baseline, width, height, minValue, maxValue);
+  const scenarioPath = linePath(scenario, width, height, minValue, maxValue);
+
+  return (
+    <div className="future-chart-wrap">
+      <svg className="future-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Future projection chart">
+        <path d={baselinePath} className="line-baseline" />
+        <path d={scenarioPath} className="line-scenario" />
+      </svg>
+      <div className="legend-row">
+        <span className="legend-item"><i className="dot-baseline" />Current path</span>
+        <span className="legend-item"><i className="dot-scenario" />Your scenario</span>
+      </div>
     </div>
   );
 }
@@ -68,9 +141,11 @@ export default function Page() {
 
   const [scenarioId, setScenarioId] = useState("");
   const [decisionId, setDecisionId] = useState("");
-  const [simulationSummary, setSimulationSummary] = useState("");
+  const [simulation, setSimulation] = useState<SimulationResult | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [previews, setPreviews] = useState<Record<string, ExecutionPreview>>({});
+  const [executionResults, setExecutionResults] = useState<Record<string, ExecutionResult>>({});
+  const [actionMessages, setActionMessages] = useState<Record<string, string>>({});
   const [trace, setTrace] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -120,21 +195,15 @@ export default function Page() {
       });
       setScenarioId(create.scenario_id);
 
-      const sim = await request<{
-        decision_id: string;
-        baseline_final_net_worth_cents: number;
-        scenario_final_net_worth_cents: number;
-        delta_final_net_worth_cents: number;
-        downside_p10_delta_cents: number;
-      }>(`/v1/scenarios/${create.scenario_id}/simulate`, { method: "POST" });
+      const sim = await request<SimulationResult>(`/v1/scenarios/${create.scenario_id}/simulate`, { method: "POST" });
       setDecisionId(sim.decision_id);
-      setSimulationSummary(
-        `Baseline ${cad(sim.baseline_final_net_worth_cents)} | Scenario ${cad(sim.scenario_final_net_worth_cents)} | Median delta ${cad(sim.delta_final_net_worth_cents)} | P10 downside ${cad(sim.downside_p10_delta_cents)}`
-      );
+      setSimulation(sim);
 
       const rec = await request<{ recommendations: Recommendation[] }>(`/v1/scenarios/${create.scenario_id}/recommendations`);
       setRecommendations(rec.recommendations);
       setPreviews({});
+      setExecutionResults({});
+      setActionMessages({});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -155,6 +224,10 @@ export default function Page() {
         }),
       });
       setPreviews((prev) => ({ ...prev, [rec.recommendation_id]: preview }));
+      setActionMessages((prev) => ({
+        ...prev,
+        [rec.recommendation_id]: `Preview ready: 12m impact ${cad(preview.projected_impact_12m.amount_cents)}; fees ${cad(preview.fees.amount_cents)}.`,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -168,7 +241,7 @@ export default function Page() {
     setBusy(true);
     setError("");
     try {
-      await request("/v1/actions/execute", {
+      const execution = await request<ExecutionResult>("/v1/actions/execute", {
         method: "POST",
         body: JSON.stringify({
           preview_id: preview.preview_id,
@@ -177,7 +250,11 @@ export default function Page() {
           idempotency_key: `idem-${preview.preview_id}`,
         }),
       });
-      alert("Execution accepted.");
+      setExecutionResults((prev) => ({ ...prev, [recId]: execution }));
+      setActionMessages((prev) => ({
+        ...prev,
+        [recId]: `Execution accepted at ${new Date(execution.executed_at).toLocaleString()} (id: ${execution.execution_id.slice(0, 8)}...).`,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -199,10 +276,13 @@ export default function Page() {
     }
   }
 
+  const primaryRecommendation = recommendations[0] || null;
+  const alternativeRecommendations = recommendations.slice(1);
+
   return (
     <main className="shell">
-      <h1 className="headline">Finmaxxin: Personal Financial Digital Twin</h1>
-      <p className="sub">Model major life decisions across 0-5 years, then safely execute recommended actions.</p>
+      <h1 className="headline">Finmaxxin: See Your Financial Future Before You Act</h1>
+      <p className="sub">Compare your current path to a custom scenario, then take the best next action with clear impact and risk context.</p>
 
       <div className="grid">
         <section className="panel">
@@ -260,65 +340,120 @@ export default function Page() {
           </div>
 
           <button disabled={busy} onClick={createAndSimulate}>
-            Create scenario, simulate, and rank recommendations
+            Build my future projection
           </button>
 
           <p className="meta">{scenarioId ? `Scenario ID: ${scenarioId}` : "No scenario yet"}</p>
-          <p className="meta">{simulationSummary || "No simulation output yet"}</p>
+          <p className="meta">Start with your best estimate, then iterate assumptions to compare futures.</p>
           {error ? <p className="meta" style={{ color: "#b00020" }}>{error}</p> : null}
         </section>
 
         <section className="panel">
-          <h2>Recommendations</h2>
-          <div className="cards">
-            {recommendations.map((rec) => {
-              const preview = previews[rec.recommendation_id];
-              return (
-                <article className="card" key={rec.recommendation_id}>
-                  <h3>{rec.title}</h3>
-                  <span className="pill">
-                    score {rec.score.toFixed(2)} | {rec.risk_level}
-                  </span>
-                  <MetricWithHelp
-                    label="Expected delta"
-                    value={`${cad(rec.expected_net_worth_delta.amount_cents)} over ${horizon} months`}
-                    help="Median projected change in your net worth versus staying on your current path."
-                  />
-                  <MetricWithHelp
-                    label="P10 downside"
-                    value={cad(rec.downside_p10_delta.amount_cents)}
-                    help="Stress-case outcome: about 1 in 10 simulations landed at or below this delta."
-                  />
-                  <MetricWithHelp
-                    label="Confidence"
-                    value={`${(rec.confidence * 100).toFixed(1)}% (${confidenceBand(rec.confidence)})`}
-                    help="How stable this estimate is across simulations, based on outcome consistency and result spread."
-                  />
-                  <MetricWithHelp
-                    label="Goal success probability"
-                    value={`${(rec.goal_success_probability * 100).toFixed(1)}%`}
-                    help="Share of simulations where ending net worth stayed at or above your current net worth."
-                  />
-                  <p>{rec.rationale[0]}</p>
-                  <div className="row">
-                    <button disabled={busy} onClick={() => previewAction(rec)}>
-                      Preview action
-                    </button>
-                    <button disabled={busy || !preview} onClick={() => executeAction(rec.recommendation_id)}>
-                      Execute action
-                    </button>
-                  </div>
-                  {preview ? (
-                    <p>
-                      12m impact {cad(preview.projected_impact_12m.amount_cents)} | fees {cad(preview.fees.amount_cents)}
-                    </p>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
+          <h2>Your Future At A Glance</h2>
+          {simulation ? (
+            <>
+              <p>{projectionVerdict(simulation)}</p>
+              <MetricWithHelp
+                label="Current path at horizon"
+                value={cad(simulation.baseline_final_net_worth_cents)}
+                help="This baseline keeps your current profile and projects forward without the scenario changes."
+              />
+              <MetricWithHelp
+                label="Scenario path at horizon"
+                value={cad(simulation.scenario_final_net_worth_cents)}
+                help="This applies your inputs (income/spend/debt/home timing changes) over the same period."
+              />
+              <MetricWithHelp
+                label="Most likely difference"
+                value={cad(simulation.delta_final_net_worth_cents)}
+                help="Median difference between scenario and baseline at the end of the horizon."
+              />
+              <MetricWithHelp
+                label="Chance scenario wins"
+                value={`${(simulation.scenario_beats_baseline_probability * 100).toFixed(1)}%`}
+                help="Percentage of simulations where your scenario finishes ahead of the current path."
+              />
+              <FutureChart baseline={simulation.baseline_timeline.p50_cents} scenario={simulation.timeline.p50_cents} />
+            </>
+          ) : (
+            <p className="meta">Run a projection to see baseline vs scenario results here.</p>
+          )}
         </section>
       </div>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>Best Next Action</h2>
+        {primaryRecommendation ? (
+          <article className="card">
+            <h3>{primaryRecommendation.title}</h3>
+            <span className="pill">
+              fit score {primaryRecommendation.score.toFixed(2)} | {primaryRecommendation.risk_level} risk
+            </span>
+            <MetricWithHelp
+              label="Expected delta"
+              value={`${cad(primaryRecommendation.expected_net_worth_delta.amount_cents)} over ${horizon} months`}
+              help="Median projected change in your net worth versus staying on your current path."
+            />
+            <MetricWithHelp
+              label="P10 downside"
+              value={cad(primaryRecommendation.downside_p10_delta.amount_cents)}
+              help="Stress-case outcome: about 1 in 10 simulations landed at or below this delta."
+            />
+            <MetricWithHelp
+              label="Confidence"
+              value={`${(primaryRecommendation.confidence * 100).toFixed(1)}% (${confidenceBand(primaryRecommendation.confidence)})`}
+              help="How stable this estimate is across simulations, based on outcome consistency and result spread."
+            />
+            <p>{primaryRecommendation.rationale[0]}</p>
+            <div className="row">
+              <button disabled={busy} onClick={() => previewAction(primaryRecommendation)}>
+                Preview impact
+              </button>
+              <button
+                disabled={busy || !previews[primaryRecommendation.recommendation_id]}
+                onClick={() => executeAction(primaryRecommendation.recommendation_id)}
+              >
+                Execute action
+              </button>
+            </div>
+            {previews[primaryRecommendation.recommendation_id] ? (
+              <p className="meta">
+                Preview: 12m impact {cad(previews[primaryRecommendation.recommendation_id].projected_impact_12m.amount_cents)}; fees{" "}
+                {cad(previews[primaryRecommendation.recommendation_id].fees.amount_cents)}.
+              </p>
+            ) : null}
+            {actionMessages[primaryRecommendation.recommendation_id] ? (
+              <p className="meta">{actionMessages[primaryRecommendation.recommendation_id]}</p>
+            ) : null}
+          </article>
+        ) : (
+          <p className="meta">Generate a projection first to get a prioritized next action.</p>
+        )}
+
+        {alternativeRecommendations.length > 0 ? (
+          <details className="alt-actions">
+            <summary>Alternative actions ({alternativeRecommendations.length})</summary>
+            <div className="cards">
+              {alternativeRecommendations.map((rec) => (
+                <article className="card" key={rec.recommendation_id}>
+                  <h3>{rec.title}</h3>
+                  <p className="meta">
+                    Expected {cad(rec.expected_net_worth_delta.amount_cents)} | Confidence {(rec.confidence * 100).toFixed(1)}%
+                  </p>
+                </article>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <h2>How This Projection Is Calculated</h2>
+        <p className="meta">
+          Baseline keeps your current profile unchanged. Scenario applies your edited inputs. Both are projected over your selected
+          horizon across many simulated market paths, then summarized into likely outcomes and downside ranges.
+        </p>
+      </section>
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Decision Trace</h2>

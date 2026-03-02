@@ -97,6 +97,8 @@ class SimulationResult(BaseModel):
     downside_p10_delta_cents: int
     confidence: float = Field(..., ge=0.0, le=1.0)
     goal_success_probability: float = Field(..., ge=0.0, le=1.0)
+    scenario_beats_baseline_probability: float = Field(..., ge=0.0, le=1.0)
+    baseline_timeline: PercentileSeries
     timeline: PercentileSeries
     alternatives: list[SimulationAlternative]
     economic_assumptions_version: str
