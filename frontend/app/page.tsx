@@ -190,6 +190,10 @@ export default function Page() {
   const [homePrice, setHomePrice] = useState(0);
   const [homeDown, setHomeDown] = useState(0);
   const [homeMonth, setHomeMonth] = useState(12);
+  const [annualIncome, setAnnualIncome] = useState(0);
+  const [liquidAssets, setLiquidAssets] = useState(0);
+  const [monthlySpend, setMonthlySpend] = useState(0);
+  const [emergencyFund, setEmergencyFund] = useState(0);
 
   const [scenarioId, setScenarioId] = useState("");
   const [decisionId, setDecisionId] = useState("");
@@ -235,12 +239,27 @@ export default function Page() {
       };
     }
 
+    const snapshotOverrides: Record<string, unknown> = {};
+    if (annualIncome > 0) {
+      snapshotOverrides.annual_income_cents = Math.round(annualIncome * 100);
+    }
+    if (liquidAssets > 0) {
+      snapshotOverrides.liquid_assets_cents = Math.round(liquidAssets * 100);
+    }
+    if (monthlySpend > 0) {
+      snapshotOverrides.monthly_spend_cents = Math.round(monthlySpend * 100);
+    }
+    if (emergencyFund > 0) {
+      snapshotOverrides.emergency_fund_cents = Math.round(emergencyFund * 100);
+    }
+
     const create = await request<{ scenario_id: string }>("/v1/scenarios", {
       method: "POST",
       body: JSON.stringify({
         user_id: userId,
         horizon_months: horizon,
         assumptions,
+        snapshot_overrides: Object.keys(snapshotOverrides).length > 0 ? snapshotOverrides : undefined,
       }),
     });
     setScenarioId(create.scenario_id);
@@ -401,6 +420,28 @@ export default function Page() {
             <div>
               <label>Debt extra payment (CAD/month)</label>
               <input type="number" value={debtExtra} onChange={(e) => setDebtExtra(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="row">
+            <div>
+              <label>Annual income (CAD)</label>
+              <input type="number" value={annualIncome} onChange={(e) => setAnnualIncome(Number(e.target.value))} />
+            </div>
+            <div>
+              <label>Liquid assets (CAD)</label>
+              <input type="number" value={liquidAssets} onChange={(e) => setLiquidAssets(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="row">
+            <div>
+              <label>Monthly spend (CAD, optional)</label>
+              <input type="number" value={monthlySpend} onChange={(e) => setMonthlySpend(Number(e.target.value))} />
+            </div>
+            <div>
+              <label>Emergency fund (CAD, optional)</label>
+              <input type="number" value={emergencyFund} onChange={(e) => setEmergencyFund(Number(e.target.value))} />
             </div>
           </div>
 

@@ -101,3 +101,26 @@ def test_advisor_requires_simulation_first() -> None:
 
     advisor_res = client.post(f"/v1/scenarios/{scenario_id}/advisor-brief", headers=headers())
     assert advisor_res.status_code == 400
+
+
+def test_create_scenario_uses_snapshot_overrides() -> None:
+    client = TestClient(create_app())
+    payload = {
+        "user_id": "user-123",
+        "horizon_months": 24,
+        "assumptions": {},
+        "snapshot_overrides": {
+            "annual_income_cents": 12000000,
+            "liquid_assets_cents": 85000000,
+            "monthly_spend_cents": 500000,
+            "emergency_fund_cents": 2000000,
+        },
+    }
+    res = client.post("/v1/scenarios", json=payload, headers=headers())
+    assert res.status_code == 201
+    snapshot = res.json()["snapshot"]
+    assert snapshot["monthly_income_cents"] == 1000000
+    assert snapshot["assets_cents"] == 85000000
+    assert snapshot["monthly_spend_cents"] == 500000
+    assert snapshot["emergency_fund_cents"] == 2000000
+    assert snapshot["liabilities_cents"] == 0

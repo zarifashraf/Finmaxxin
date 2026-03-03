@@ -40,10 +40,18 @@ class ScenarioAssumptions(BaseModel):
     debt_plan: DebtPlanAssumption | None = None
 
 
+class SnapshotOverrides(BaseModel):
+    annual_income_cents: int | None = Field(default=None, ge=0)
+    liquid_assets_cents: int | None = Field(default=None, ge=0)
+    monthly_spend_cents: int | None = Field(default=None, ge=0)
+    emergency_fund_cents: int | None = Field(default=None, ge=0)
+
+
 class ScenarioInput(BaseModel):
     user_id: str
     horizon_months: int = Field(default=60, ge=1, le=60)
     assumptions: ScenarioAssumptions = Field(default_factory=ScenarioAssumptions)
+    snapshot_overrides: SnapshotOverrides | None = None
 
     @field_validator("user_id")
     @classmethod

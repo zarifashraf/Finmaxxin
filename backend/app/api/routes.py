@@ -23,7 +23,7 @@ def create_scenario(payload: ScenarioInput, services: ServiceContainer = Service
     if payload.user_id != principal.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="user_id must match authenticated principal")
 
-    snapshot = services.data_provider.get_account_snapshot(payload.user_id)
+    snapshot = services.data_provider.get_account_snapshot(payload.user_id, payload.snapshot_overrides)
     scenario = ScenarioRecord(input=payload, snapshot=snapshot)
     services.store.save_scenario(scenario)
     services.event_bus.emit("scenario_created", {"scenario_id": scenario.scenario_id, "user_id": payload.user_id})
