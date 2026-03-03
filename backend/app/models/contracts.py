@@ -159,6 +159,25 @@ class AdvisorBriefResponse(BaseModel):
     fallback_used: bool
     market_data_stale: bool = False
     fallback_reason: str | None = None
+    diagnostics: AdvisorDiagnostics | None = None
+
+
+class DecisionGate(BaseModel):
+    gate_id: str
+    label: str
+    passed: bool
+    observed: str
+    required: str
+
+
+class AdvisorDiagnostics(BaseModel):
+    quantitative_verdict: str
+    wait_reasons: list[str] = Field(default_factory=list)
+    gates: list[DecisionGate] = Field(default_factory=list)
+    recommended_down_payment_cents: int | None = None
+    recommended_down_payment_upper_cents: int | None = None
+    emergency_fund_target_cents: int | None = None
+    emergency_fund_gap_cents: int | None = None
 
 
 class AdvisorBriefTrace(BaseModel):

@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
     llm_client_service = LlmClientService(settings)
     advisor_prompt_service = AdvisorPromptService(settings)
     advisory_validation_service = AdvisoryValidationService(settings)
-    fallback_advisor_service = DeterministicFallbackAdvisor()
+    fallback_advisor_service = DeterministicFallbackAdvisor(settings)
     advisory_orchestrator_service = AdvisoryOrchestratorService(
         settings=settings,
         market_data_service=market_data_service,

@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     llm_max_response_chars: int = Field(default=4000, ge=500, le=12000)
     advisor_prompt_max_chars: int = Field(default=5000, ge=1000, le=20000)
     market_geo_scope: str = "CA"
+    advisor_required_emergency_months: int = Field(default=6, ge=1, le=24)
+    advisor_min_delta_buy_cents: int = Field(default=0, ge=-10_000_000_00, le=10_000_000_00)
+    advisor_min_beats_baseline_probability: float = Field(default=0.6, ge=0.0, le=1.0)
+    advisor_base_down_payment_pct: float = Field(default=0.20, ge=0.0, le=1.0)
+    advisor_risk_down_payment_pct: float = Field(default=0.25, ge=0.0, le=1.0)
+    advisor_emergency_down_payment_pct: float = Field(default=0.30, ge=0.0, le=1.0)
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-4o-mini"
 
 
 settings = Settings()

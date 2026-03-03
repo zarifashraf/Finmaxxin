@@ -79,6 +79,11 @@ def test_end_to_end_flow() -> None:
     assert "Suggested down payment:" in advisor["advice_text"]
     assert "Primary action:" in advisor["advice_text"]
     assert isinstance(advisor["fallback_used"], bool)
+    assert advisor["diagnostics"] is not None
+    assert "quantitative_verdict" in advisor["diagnostics"]
+    assert isinstance(advisor["diagnostics"]["gates"], list)
+    if advisor["fallback_used"]:
+        assert advisor["llm_model"] == "deterministic-fallback"
 
 
 def test_requires_bearer_token() -> None:

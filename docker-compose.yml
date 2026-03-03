@@ -26,11 +26,13 @@ services:
       FINMAXXIN_LLM_TIMEOUT_MS: 20000
       FINMAXXIN_LLM_MAX_TOKENS: 320
       FINMAXXIN_LLM_TEMPERATURE: 0.2
+      FINMAXXIN_OPENAI_API_KEY: ${FINMAXXIN_OPENAI_API_KEY:-}
+      FINMAXXIN_OPENAI_BASE_URL: ${FINMAXXIN_OPENAI_BASE_URL:-https://api.openai.com/v1}
+      FINMAXXIN_OPENAI_MODEL: ${FINMAXXIN_OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
       - postgres
       - redis
       - redpanda
-      - llm
 
   web:
     build:
@@ -48,8 +50,6 @@ services:
       POSTGRES_USER: finmaxxin
       POSTGRES_PASSWORD: finmaxxin
       POSTGRES_DB: finmaxxin
-    ports:
-      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -87,11 +87,11 @@ services:
       - "127.0.0.1:9092:9092"
 
   llm:
-    image: ghcr.io/ggerganov/llama.cpp:server
+    image: ghcr.io/ggml-org/llama.cpp:server
     container_name: finmaxxin-llm
     command:
       - -m
-      - /models/${LLM_MODEL_FILE:-qwen2.5-3b-instruct-q4_k_m.gguf}
+      - /models/${LLM_MODEL_FILE:-Qwen3.5-35B-A3B-UD-IQ2_XXS.gguf}
       - -c
       - "2048"
       - --host

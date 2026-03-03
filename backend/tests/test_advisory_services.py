@@ -70,7 +70,7 @@ def test_validation_rejects_missing_sections() -> None:
 
 
 def test_fallback_output_has_required_sections() -> None:
-    advisor = DeterministicFallbackAdvisor()
+    advisor = DeterministicFallbackAdvisor(settings)
     scenario = sample_scenario()
     simulation = sample_simulation(scenario.scenario_id)
     market = MarketSnapshot(
@@ -88,3 +88,16 @@ def test_fallback_output_has_required_sections() -> None:
     assert "Key risks:" in text
     assert "Primary action:" in text
     assert "Note:" in text
+
+
+def test_fallback_diagnostics_explain_wait_reasons() -> None:
+    advisor = DeterministicFallbackAdvisor(settings)
+    scenario = sample_scenario()
+    simulation = sample_simulation(scenario.scenario_id)
+    diagnostics = advisor.evaluate(scenario, simulation)
+
+    assert diagnostics.quantitative_verdict == "wait"
+    assert "emergency_fund_gap" in diagnostics.wait_reasons
+    assert diagnostics.recommended_down_payment_cents is not None
+    assert diagnostics.recommended_down_payment_upper_cents is not None
+    assert len(diagnostics.gates) >= 4

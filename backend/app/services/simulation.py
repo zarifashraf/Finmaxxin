@@ -107,6 +107,10 @@ class SimulationService:
         annual_return_std = 0.115
         monthly_mean = annual_return_mean / 12.0
         monthly_std = annual_return_std / np.sqrt(12.0)
+        annual_home_return_mean = 0.02
+        annual_home_return_std = 0.06
+        monthly_home_mean = annual_home_return_mean / 12.0
+        monthly_home_std = annual_home_return_std / np.sqrt(12.0)
 
         income_multiplier = 1.0 + ((assumptions.income_change_pct or 0.0) / 100.0)
         spend_multiplier = 1.0 + ((assumptions.monthly_spend_change_pct or 0.0) / 100.0)
@@ -120,11 +124,15 @@ class SimulationService:
             investable = snapshot.assets_cents
             liabilities = snapshot.liabilities_cents
             emergency_fund = snapshot.emergency_fund_cents
+            home_value = 0
             home_purchase_done = False
 
             for month in range(1, horizon_months + 1):
                 monthly_return = float(rng.normal(monthly_mean, monthly_std))
                 investable = int(investable * (1.0 + monthly_return))
+                if home_purchase_done and home_value > 0:
+                    home_return = float(rng.normal(monthly_home_mean, monthly_home_std))
+                    home_value = int(home_value * (1.0 + home_return))
 
                 net_cash_flow = income - spend
 
@@ -139,6 +147,7 @@ class SimulationService:
                     mortgage = max(0, price - down)
                     investable -= down
                     liabilities += mortgage
+                    home_value += price
                     home_purchase_done = True
 
                 if net_cash_flow >= 0:
@@ -153,7 +162,7 @@ class SimulationService:
                     remaining = deficit - draw_from_emergency
                     investable -= remaining
 
-                net_worth = investable + emergency_fund - liabilities
+                net_worth = investable + emergency_fund + home_value - liabilities
                 result[p, month - 1] = net_worth
 
         return result
